@@ -1,0 +1,5 @@
+.env
+.gradio
+.ipynb_checkpoints
+*.ipynb
+gradio_env
