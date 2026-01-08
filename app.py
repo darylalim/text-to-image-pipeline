@@ -1,15 +1,14 @@
-import gradio as gr
-import numpy as np
 import os
 import random
+
+import gradio as gr
+import numpy as np
 import torch
 from diffusers import DiffusionPipeline
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Get Hugging Face token
 hf_token = os.getenv("HF_TOKEN")
 
 if torch.backends.mps.is_available():
@@ -25,13 +24,13 @@ else:
 model_repo_id = "stabilityai/stable-diffusion-3.5-medium"
 
 pipe = DiffusionPipeline.from_pretrained(
-    model_repo_id, 
+    model_repo_id,
+    device_map=device,
     torch_dtype=torch_dtype, 
     variant="fp16",
     use_safetensors=True,
     token=hf_token
 )
-pipe = pipe.to(device)
 pipe.enable_attention_slicing()
 
 MAX_SEED = np.iinfo(np.int32).max
@@ -80,7 +79,6 @@ css = """
 with gr.Blocks(css=css) as demo:
     with gr.Column(elem_id="col-container"):
         gr.Markdown(" # [Stable Diffusion 3.5 Medium (2.6B)](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium)")
-        gr.Markdown("[Learn more](https://stability.ai/news/introducing-stable-diffusion-3-5) about the Stable Diffusion 3.5 series. Try on [Stability AI API](https://platform.stability.ai/docs/api-reference#tag/Generate/paths/~1v2beta~1stable-image~1generate~1sd3/post), or [download model](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium) to run locally with ComfyUI or diffusers.")
         with gr.Row():
             prompt = gr.Text(
                 label="Prompt",
