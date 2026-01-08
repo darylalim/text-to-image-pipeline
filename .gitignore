@@ -3,3 +3,4 @@
 .ipynb_checkpoints
 *.ipynb
 gradio_env
+app_v1.py
