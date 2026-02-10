@@ -1,9 +1,0 @@
-accelerate
-diffusers
-torch
-transformers
-git+https://github.com/huggingface/diffusers.git
-sentencepiece
-gradio
-python-dotenv
-protobuf
