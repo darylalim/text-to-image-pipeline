@@ -1,0 +1,19 @@
+[project]
+name = "text-to-image-pipeline"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "diffusers",
+    "torch",
+    "transformers",
+    "sentencepiece",
+    "gradio",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "ty",
+    "pytest",
+]
