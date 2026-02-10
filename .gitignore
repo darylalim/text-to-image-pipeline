@@ -1,6 +1,8 @@
 .env
 .gradio
+.venv
+__pycache__
+.DS_Store
+.pytest_cache
+.ruff_cache
 .ipynb_checkpoints
-*.ipynb
-gradio_env
-app_v1.py
