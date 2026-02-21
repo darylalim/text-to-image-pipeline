@@ -4,8 +4,13 @@ import warnings
 
 import gradio as gr
 import torch
-from diffusers import StableDiffusion3Pipeline
 from dotenv import load_dotenv
+
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore", message=".*CUDA is not available.*Disabling autocast.*"
+    )
+    from diffusers import StableDiffusion3Pipeline
 
 load_dotenv()
 
@@ -43,8 +48,6 @@ def _get_pipe():
         )
     _pipe.to(device)
     _pipe.enable_attention_slicing()
-    _pipe.enable_vae_slicing()
-    _pipe.enable_vae_tiling()
     return _pipe
 
 
@@ -153,10 +156,6 @@ with gr.Blocks() as demo:
                 "A capybara wearing a suit holding a sign that reads Hello World"
             ],
             inputs=[prompt],
-            outputs=[result, seed],
-            fn=infer,
-            cache_examples=True,
-            cache_mode="lazy",
         )
     gr.on(
         triggers=[run_button.click, prompt.submit],

@@ -135,32 +135,6 @@ class TestPipelineInit:
             app._get_pipe()
             mock_pipe.enable_attention_slicing.assert_called()
 
-    def test_vae_slicing_enabled(self):
-        mock_pipe = _make_mock_pipe()
-        app, _ = _reload_app(mock_pipe)
-        with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
-        ):
-            mock_cls.from_pretrained.return_value = mock_pipe
-            app._pipe = None
-            app._get_pipe()
-            mock_pipe.enable_vae_slicing.assert_called()
-
-    def test_vae_tiling_enabled(self):
-        mock_pipe = _make_mock_pipe()
-        app, _ = _reload_app(mock_pipe)
-        with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
-        ):
-            mock_cls.from_pretrained.return_value = mock_pipe
-            app._pipe = None
-            app._get_pipe()
-            mock_pipe.enable_vae_tiling.assert_called()
-
     def test_caches_pipe(self):
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
