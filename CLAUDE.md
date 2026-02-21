@@ -24,37 +24,26 @@ uv run python app.py
 
 Everything lives in `app.py`, structured in three sections:
 
-1. **Model initialization** — `_detect_device()` selects hardware (MPS → CUDA → CPU) and dtype (float16 for MPS/CPU, bfloat16 for CUDA). `_get_pipe()` lazily loads the StableDiffusion3Pipeline on first inference, moves it to the detected device, and enables attention slicing, VAE slicing, and VAE tiling for memory optimization. HF_TOKEN is loaded from `.env` at import time.
-2. **`infer()` function** — Takes prompt, negative prompt, seed, dimensions (512–1440px), guidance scale, and inference steps. Calls `_get_pipe()` to get the pipeline, runs inference under `torch.inference_mode()` with a CPU-pinned generator for MPS compatibility. Returns a PIL Image and the seed used.
-3. **Gradio UI** — Text input, run button, image output, and an accordion with advanced settings. Inference triggers on button click or prompt submission.
+1. **Model initialization** — `_detect_device()` selects hardware (MPS > CUDA > CPU) and dtype (float16 for MPS/CPU, bfloat16 for CUDA). `_get_pipe()` lazily loads the pipeline on first inference, moves it to the detected device, and enables attention slicing. HF_TOKEN is loaded from `.env` at import time.
+2. **Inference** — `infer()` takes prompt, negative prompt, seed, dimensions (512-1440px), guidance scale, and inference steps. Calls `_get_pipe()`, runs inference under `torch.inference_mode()` with a CPU-pinned generator for MPS compatibility. Returns a PIL Image and the seed used.
+3. **UI** — Text input, run button, image output, and an accordion with advanced settings. Inference triggers on button click or prompt submission.
 
-## Linting & Formatting
-
-```bash
-uv run ruff check .            # Lint
-uv run ruff check --fix .      # Lint with auto-fix
-uv run ruff format .           # Format
-uv run ruff format --check .   # Check formatting only
-```
-
-## Type Checking
+## Commands
 
 ```bash
-uv run ty check .
-```
-
-## Testing
-
-```bash
-uv run pytest                                          # Run all tests
-uv run pytest tests/test_app.py                        # Run a single test file
-uv run pytest tests/test_app.py::TestInfer             # Run a specific test class
+uv run ruff check .              # Lint
+uv run ruff check --fix .        # Lint with auto-fix
+uv run ruff format .             # Format
+uv run ruff format --check .     # Check formatting only
+uv run ty check .                # Type check
+uv run pytest                    # Run all tests
+uv run pytest tests/test_app.py  # Run a single test file
 ```
 
 ## Gotchas
 
-- **`from_pretrained` uses `torch_dtype`, not `dtype`.** A sub-component emits a "`torch_dtype` is deprecated, use `dtype`" warning, but the `StableDiffusion3Pipeline.from_pretrained` API itself still requires `torch_dtype`. Passing `dtype` instead causes it to be silently ignored. Do not rename this parameter.
-- **Use `pipe.to(device)`, not `device_map=`.** The `device_map` parameter uses `accelerate` which probes CUDA even on MPS/CPU machines, causing spurious warnings. `pipe.to(device)` is the standard diffusers approach for single-device setups.
-- **Do not remove the `warnings.catch_warnings()` block in model loading.** It suppresses two known upstream warnings: the SD3 T5 tokenizer `add_prefix_space` warning (a `sentencepiece` compatibility issue with no installable fix on macOS ARM64) and the `torch_dtype` deprecation warning.
+- **`from_pretrained` requires `torch_dtype`, not `dtype`.** A sub-component warns that `torch_dtype` is deprecated, but the `StableDiffusion3Pipeline.from_pretrained` API still requires it. Passing `dtype` causes it to be silently ignored.
+- **Use `pipe.to(device)`, not `device_map=`.** `device_map` probes CUDA even on MPS/CPU machines, causing spurious warnings. `pipe.to(device)` is the standard diffusers approach for single-device setups.
+- **Do not remove the `warnings.catch_warnings()` blocks.** The block around the diffusers import suppresses a Kandinsky5 `torch.autocast(device_type="cuda")` warning that fires at import time on non-CUDA machines. The block in `_get_pipe()` suppresses the T5 tokenizer `add_prefix_space` warning and the `torch_dtype` deprecation warning.
+- **SD3 does not support `enable_vae_slicing()` or `enable_vae_tiling()`.** These methods exist on other pipelines (e.g., SDXL) but not `StableDiffusion3Pipeline`. Only `enable_attention_slicing()` is available.
 - **Do not pin `sentencepiece==0.1.99`.** That version has no pre-built wheel for macOS ARM64 and requires `cmake` to build from source. The current unpinned version works with the warning suppression in place.
-
