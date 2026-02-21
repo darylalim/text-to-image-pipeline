@@ -24,8 +24,8 @@ uv run python app.py
 
 Everything lives in `app.py`, structured in three sections:
 
-1. **Model initialization** — Loads HF_TOKEN from `.env`, detects hardware (MPS → CUDA → CPU), selects dtype (float16 for MPS/CPU, bfloat16 for CUDA), loads the StableDiffusion3Pipeline, moves it to the detected device with `pipe.to(device)`, and enables attention slicing for memory optimization.
-2. **`infer()` function** — Takes prompt, negative prompt, seed, dimensions (512–1440px), guidance scale, and inference steps. Runs inference under `torch.inference_mode()` with the generator pinned to the pipeline device. Returns a PIL Image and the seed used.
+1. **Model initialization** — `_detect_device()` selects hardware (MPS → CUDA → CPU) and dtype (float16 for MPS/CPU, bfloat16 for CUDA). `_get_pipe()` lazily loads the StableDiffusion3Pipeline on first inference, moves it to the detected device, and enables attention slicing, VAE slicing, and VAE tiling for memory optimization. HF_TOKEN is loaded from `.env` at import time.
+2. **`infer()` function** — Takes prompt, negative prompt, seed, dimensions (512–1440px), guidance scale, and inference steps. Calls `_get_pipe()` to get the pipeline, runs inference under `torch.inference_mode()` with a CPU-pinned generator for MPS compatibility. Returns a PIL Image and the seed used.
 3. **Gradio UI** — Text input, run button, image output, and an accordion with advanced settings. Inference triggers on button click or prompt submission.
 
 ## Linting & Formatting
