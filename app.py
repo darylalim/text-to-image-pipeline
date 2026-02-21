@@ -11,30 +11,41 @@ load_dotenv()
 
 hf_token = os.getenv("HF_TOKEN")
 
-if torch.backends.mps.is_available():
-    device = "mps"
-    torch_dtype = torch.float16
-elif torch.cuda.is_available():
-    device = "cuda"
-    torch_dtype = torch.bfloat16
-else:
-    device = "cpu"
-    torch_dtype = torch.float16
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", message=".*add_prefix_space.*")
-    warnings.filterwarnings("ignore", message=".*torch_dtype.*is deprecated.*")
-    pipe = StableDiffusion3Pipeline.from_pretrained(
-        "stabilityai/stable-diffusion-3.5-medium",
-        torch_dtype=torch_dtype,
-        use_safetensors=True,
-        token=hf_token,
-    )
-pipe.to(device)
-pipe.enable_attention_slicing()
-
 MAX_SEED = 2_147_483_647
 MAX_IMAGE_SIZE = 1440
+
+_pipe = None
+
+
+def _detect_device():
+    if torch.backends.mps.is_available():
+        return "mps", torch.float16
+    if torch.cuda.is_available():
+        return "cuda", torch.bfloat16
+    return "cpu", torch.float16
+
+
+def _get_pipe():
+    global _pipe
+    if _pipe is not None:
+        return _pipe
+
+    device, dtype = _detect_device()
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*add_prefix_space.*")
+        warnings.filterwarnings("ignore", message=".*torch_dtype.*is deprecated.*")
+        _pipe = StableDiffusion3Pipeline.from_pretrained(
+            "stabilityai/stable-diffusion-3.5-medium",
+            torch_dtype=dtype,
+            use_safetensors=True,
+            token=hf_token,
+        )
+    _pipe.to(device)
+    _pipe.enable_attention_slicing()
+    _pipe.enable_vae_slicing()
+    _pipe.enable_vae_tiling()
+    return _pipe
 
 
 def infer(
@@ -46,12 +57,12 @@ def infer(
     height=1024,
     guidance_scale=4.5,
     num_inference_steps=40,
-    progress=gr.Progress(track_tqdm=True),
 ):
     if randomize_seed:
         seed = random.randint(0, MAX_SEED)
 
-    generator = torch.Generator(device=device).manual_seed(seed)
+    pipe = _get_pipe()
+    generator = torch.Generator(device="cpu").manual_seed(seed)
 
     with torch.inference_mode():
         image = pipe(
