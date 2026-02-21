@@ -3,12 +3,13 @@ name = "text-to-image-pipeline"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "accelerate",
     "diffusers",
-    "torch",
-    "transformers",
-    "sentencepiece",
     "gradio",
     "python-dotenv",
+    "sentencepiece",
+    "torch",
+    "transformers",
 ]
 
 [dependency-groups]
