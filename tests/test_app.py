@@ -16,7 +16,7 @@ def _make_mock_pipe():
 def _reload_app(mock_pipe, *, mps_available=False, cuda_available=False):
     """Reload app module with mocked heavy dependencies and cleared pipe cache."""
     with (
-        patch("diffusers.StableDiffusion3Pipeline") as mock_cls,
+        patch("diffusers.Flux2KleinPipeline") as mock_cls,
         patch("torch.backends.mps.is_available", return_value=mps_available),
         patch("torch.cuda.is_available", return_value=cuda_available),
     ):
@@ -52,7 +52,7 @@ class TestDetectDevice:
             importlib.reload(app)
             device, dtype = app._detect_device()
             assert device == "mps"
-            assert dtype is torch.float16
+            assert dtype is torch.bfloat16
 
     def test_cuda_when_mps_unavailable(self):
         with (
@@ -76,7 +76,7 @@ class TestDetectDevice:
             importlib.reload(app)
             device, dtype = app._detect_device()
             assert device == "cpu"
-            assert dtype is torch.float16
+            assert dtype is torch.bfloat16
 
     def test_mps_priority_over_cuda(self):
         with (
@@ -95,7 +95,7 @@ class TestPipelineInit:
         mock_pipe = _make_mock_pipe()
         app, mock_cls = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls2,
+            patch("app.Flux2KleinPipeline") as mock_cls2,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -103,8 +103,8 @@ class TestPipelineInit:
             app._pipe = None
             app._get_pipe()
             mock_cls2.from_pretrained.assert_called_once_with(
-                "stabilityai/stable-diffusion-3.5-medium",
-                torch_dtype=torch.float16,
+                "black-forest-labs/FLUX.2-klein-4B",
+                torch_dtype=torch.bfloat16,
                 use_safetensors=True,
                 token=app.hf_token,
             )
@@ -113,7 +113,7 @@ class TestPipelineInit:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -122,24 +122,38 @@ class TestPipelineInit:
             app._get_pipe()
             mock_pipe.to.assert_called_with("cpu")
 
-    def test_attention_slicing_enabled(self):
+    def test_pipeline_moved_to_mps_device(self):
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
-            patch("torch.backends.mps.is_available", return_value=False),
+            patch("app.Flux2KleinPipeline") as mock_cls,
+            patch("torch.backends.mps.is_available", return_value=True),
             patch("torch.cuda.is_available", return_value=False),
         ):
             mock_cls.from_pretrained.return_value = mock_pipe
             app._pipe = None
             app._get_pipe()
-            mock_pipe.enable_attention_slicing.assert_called()
+            mock_pipe.to.assert_called_with("mps")
+
+    def test_cpu_offload_on_cuda(self):
+        mock_pipe = _make_mock_pipe()
+        app, _ = _reload_app(mock_pipe)
+        with (
+            patch("app.Flux2KleinPipeline") as mock_cls,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=True),
+        ):
+            mock_cls.from_pretrained.return_value = mock_pipe
+            app._pipe = None
+            app._get_pipe()
+            mock_pipe.enable_model_cpu_offload.assert_called()
+            mock_pipe.to.assert_not_called()
 
     def test_caches_pipe(self):
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -156,7 +170,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -169,14 +183,13 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
             mock_cls.from_pretrained.return_value = mock_pipe
             app.infer(
                 "a cat",
-                negative_prompt="blurry",
                 seed=123,
                 width=768,
                 height=512,
@@ -185,7 +198,6 @@ class TestInfer:
             )
             mock_pipe.assert_called_once_with(
                 prompt="a cat",
-                negative_prompt="blurry",
                 guidance_scale=3.0,
                 num_inference_steps=20,
                 width=768,
@@ -197,7 +209,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -209,7 +221,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -221,7 +233,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
             patch("torch.Generator") as mock_gen_cls,
@@ -238,7 +250,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -246,9 +258,8 @@ class TestInfer:
             app.infer("a cat")
             mock_pipe.assert_called_once_with(
                 prompt="a cat",
-                negative_prompt="",
-                guidance_scale=4.5,
-                num_inference_steps=40,
+                guidance_scale=1.0,
+                num_inference_steps=4,
                 width=1024,
                 height=1024,
                 generator=ANY,
@@ -258,7 +269,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
@@ -267,9 +278,8 @@ class TestInfer:
             assert isinstance(image, Image.Image)
             mock_pipe.assert_called_once_with(
                 prompt="",
-                negative_prompt="",
-                guidance_scale=4.5,
-                num_inference_steps=40,
+                guidance_scale=1.0,
+                num_inference_steps=4,
                 width=1024,
                 height=1024,
                 generator=ANY,
@@ -279,7 +289,7 @@ class TestInfer:
         mock_pipe = _make_mock_pipe()
         app, _ = _reload_app(mock_pipe)
         with (
-            patch("app.StableDiffusion3Pipeline") as mock_cls,
+            patch("app.Flux2KleinPipeline") as mock_cls,
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
             patch("torch.inference_mode") as mock_inference_mode,
