@@ -42,9 +42,8 @@ uv run pytest tests/test_app.py  # Run a single test file
 
 ## Gotchas
 
-- **`from_pretrained` requires `torch_dtype`, not `dtype`.** The `Flux2KleinPipeline.from_pretrained` API requires `torch_dtype`. Passing `dtype` causes it to be silently ignored.
+- **`from_pretrained` requires `torch_dtype`, not `dtype`.** The `Flux2KleinPipeline.from_pretrained` API requires `torch_dtype`. Passing `dtype` causes it to be silently ignored. The `torch_dtype` deprecation warning originated from transformers, not diffusers — diffusers handles the translation internally as of the fix in huggingface/diffusers#12841.
 - **On CUDA, use `enable_model_cpu_offload()` instead of `pipe.to(device)`.** This offloads model components to CPU when not in use, reducing VRAM requirements (~13GB). On MPS/CPU, use `pipe.to(device)` since CPU offload is CUDA-only.
-- **Do not remove the `warnings.catch_warnings()` blocks.** The block around the diffusers import suppresses a `torch.autocast(device_type="cuda")` warning on non-CUDA machines. The block in `_get_pipe()` suppresses the T5 tokenizer `add_prefix_space` and `torch_dtype` deprecation warnings.
 - **FLUX.2 Klein does not support negative prompts.** The FLUX pipeline does not accept a `negative_prompt` parameter.
 - **The generator is pinned to CPU, not the inference device.** The model card example uses `torch.Generator(device="cuda")`, but we use `device="cpu"` for cross-device compatibility. MPS generators have known reliability issues, and CPU generators produce equivalent results across all backends.
 - **Do not pin `sentencepiece==0.1.99`.** That version has no pre-built wheel for macOS ARM64. The current unpinned version works.
