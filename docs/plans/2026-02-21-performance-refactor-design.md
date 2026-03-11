@@ -1,3 +1,5 @@
+> **Note:** This plan predates the migration from Stable Diffusion 3.5 Medium to FLUX.2 Klein 4B. References to `StableDiffusion3Pipeline`, negative prompts, VAE slicing/tiling, and attention slicing no longer apply.
+
 # Performance Refactor Design
 
 **Date:** 2026-02-21

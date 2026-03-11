@@ -1,7 +1,7 @@
-.env
-.gradio
-.venv
-__pycache__
 .DS_Store
-.pytest_cache
-.ruff_cache
+.env
+.gradio/
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/

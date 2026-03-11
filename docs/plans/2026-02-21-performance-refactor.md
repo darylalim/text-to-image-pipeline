@@ -1,3 +1,5 @@
+> **Note:** This plan predates the migration from Stable Diffusion 3.5 Medium to FLUX.2 Klein 4B. References to `StableDiffusion3Pipeline`, negative prompts, VAE slicing/tiling, and attention slicing no longer apply.
+
 # Performance Refactor Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
