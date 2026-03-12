@@ -36,14 +36,14 @@ Takes the user's short prompt, sends it to the LLM using the chat message format
 - **System prompt**: "You are a prompt engineer. Rewrite the user's text into a detailed, vivid image generation prompt. Keep it under 100 words. Output only the enhanced prompt, nothing else."
 - **Generation config**: `max_new_tokens=150`, `do_sample=True`, `temperature=0.7`, `top_p=0.9`
 - **Output parsing**: The chat-mode pipeline returns `[{"generated_text": [{"role": "assistant", "content": "..."}]}]`. Extract `result[0]["generated_text"][-1]["content"]` and strip whitespace.
-- **Error handling**: If the LLM returns empty content, return the original prompt unchanged.
+- **Error handling**: Wrap the LLM call in a try/except. On any exception (OOM, model loading failure, malformed response), show a warning via `st.warning()` and return the original prompt unchanged. If the LLM returns empty content, also return the original prompt unchanged. This ensures the optional enhancement feature never blocks the core image generation workflow.
 
 ## UI Flow
 
 1. **Prompt input** — existing `st.text_input` unchanged
 2. **"Enhance Prompt" button** — new button below the prompt input. Shows `st.spinner("Enhancing prompt...")` while running. Calls `upsample_prompt()` and stores the result in `st.session_state.enhanced_prompt`
 3. **Enhanced prompt area** — only appears when `st.session_state.enhanced_prompt` is set. Rendered as `st.text_area` with a `key="enhanced_prompt_area"` so Streamlit manages user edits independently of session state
-4. **"Run" button** — generates the image. Uses the text area value if the enhanced area is visible, otherwise the original input
+4. **"Run" button** — generates the image. Uses `st.session_state.enhanced_prompt_area` if `enhanced_prompt` is in session state, otherwise uses the original `prompt` value
 5. **Advanced Settings** — unchanged (seed, dimensions, guidance scale, steps)
 
 **State management:**
@@ -53,7 +53,7 @@ Takes the user's short prompt, sends it to the LLM using the chat message format
 
 ## Testing
 
-Following existing mock-based test patterns. The `_reload_app` helper will need to also patch `transformers.pipeline` to prevent model downloads during testing.
+Following existing mock-based test patterns. The `_reload_app` helper will add `patch("transformers.pipeline")` to its existing context manager block and accept an optional `mock_llm` parameter (defaulting to `None`) to wire up as the return value when provided.
 
 ### `TestLLMInit`
 
@@ -68,6 +68,7 @@ Following existing mock-based test patterns. The `_reload_app` helper will need 
 - Verify output parsing extracts assistant content from structured response
 - Verify empty LLM output falls back to the original prompt
 - Verify the returned text is stripped of whitespace
+- Verify exception from LLM pipeline falls back to original prompt
 
 ### `TestStreamlitApp` updates
 
