@@ -16,6 +16,8 @@ Generate images from text prompts with the [FLUX.2 Klein (4B)](https://huggingfa
 2. Install dependencies: `uv sync`
 3. Run the application: `uv run streamlit run streamlit_app.py`
 
+Models are downloaded automatically on first use (~8GB for FLUX.2 Klein, ~3.4GB for SmolLM2).
+
 ## Testing
 
 Run the unit tests (no GPU or model download required):
