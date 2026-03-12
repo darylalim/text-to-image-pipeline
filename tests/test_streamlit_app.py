@@ -466,7 +466,9 @@ class TestUpsamplePrompt:
             mock_tp.return_value = mock_llm
             result = streamlit_app.upsample_prompt("a cat")
             assert result == "a cat"
-            mock_st.warning.assert_called_once()
+            mock_st.warning.assert_called_once_with(
+                "Prompt enhancement failed. Using original prompt."
+            )
 
 
 class TestStreamlitApp:
