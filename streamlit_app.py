@@ -5,7 +5,7 @@ import streamlit as st
 import torch
 from diffusers import Flux2KleinPipeline
 from dotenv import load_dotenv
-from transformers import pipeline as transformers_pipeline
+from transformers import GenerationConfig, pipeline as transformers_pipeline
 
 load_dotenv()
 
@@ -47,7 +47,7 @@ def _get_llm():
     return transformers_pipeline(
         "text-generation",
         model="HuggingFaceTB/SmolLM2-1.7B-Instruct",
-        torch_dtype=dtype,
+        dtype=dtype,
         device=device,
     )
 
@@ -66,13 +66,13 @@ def upsample_prompt(prompt):
             {"role": "system", "content": UPSAMPLE_SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ]
-        result = llm(
-            messages,
+        generation_config = GenerationConfig(
             max_new_tokens=150,
             do_sample=True,
             temperature=0.7,
             top_p=0.9,
         )
+        result = llm(messages, generation_config=generation_config)
         enhanced = result[0]["generated_text"][-1]["content"].strip()
         if not enhanced:
             return prompt

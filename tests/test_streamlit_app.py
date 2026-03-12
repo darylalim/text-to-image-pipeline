@@ -306,7 +306,7 @@ class TestLLMInit:
             mock_tp.assert_called_once_with(
                 "text-generation",
                 model="HuggingFaceTB/SmolLM2-1.7B-Instruct",
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device="cpu",
             )
 
@@ -324,7 +324,7 @@ class TestLLMInit:
             mock_tp.assert_called_once_with(
                 "text-generation",
                 model="HuggingFaceTB/SmolLM2-1.7B-Instruct",
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device="mps",
             )
 
@@ -344,7 +344,7 @@ class TestLLMInit:
             mock_tp.assert_called_once_with(
                 "text-generation",
                 model="HuggingFaceTB/SmolLM2-1.7B-Instruct",
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device="cuda",
             )
 
@@ -385,10 +385,11 @@ class TestUpsamplePrompt:
             mock_tp.return_value = mock_llm
             streamlit_app.upsample_prompt("a cat")
             kwargs = mock_llm.call_args[1]
-            assert kwargs["max_new_tokens"] == 150
-            assert kwargs["do_sample"] is True
-            assert kwargs["temperature"] == 0.7
-            assert kwargs["top_p"] == 0.9
+            gen_config = kwargs["generation_config"]
+            assert gen_config.max_new_tokens == 150
+            assert gen_config.do_sample is True
+            assert gen_config.temperature == 0.7
+            assert gen_config.top_p == 0.9
 
     def test_extracts_assistant_content(self):
         mock_pipe = _make_mock_pipe()
