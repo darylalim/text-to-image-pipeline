@@ -5,6 +5,13 @@ import torch
 from PIL import Image
 
 
+def _make_mock_pipe():
+    """Create a mock diffusion pipeline that returns a dummy image."""
+    pipe = MagicMock()
+    pipe.return_value.images = [Image.new("RGB", (64, 64))]
+    return pipe
+
+
 def _make_mock_llm():
     """Create a mock text-generation pipeline."""
     llm = MagicMock()
@@ -12,13 +19,6 @@ def _make_mock_llm():
         {"generated_text": [{"role": "assistant", "content": "enhanced prompt"}]}
     ]
     return llm
-
-
-def _make_mock_pipe():
-    """Create a mock diffusion pipeline that returns a dummy image."""
-    pipe = MagicMock()
-    pipe.return_value.images = [Image.new("RGB", (64, 64))]
-    return pipe
 
 
 def _reload_app(mock_pipe, *, mock_llm=None, mps_available=False, cuda_available=False):
@@ -477,6 +477,7 @@ class TestStreamlitApp:
         """Verify _get_pipe is decorated with @st.cache_resource (not passthrough)."""
         with (
             patch("diffusers.Flux2KleinPipeline"),
+            patch("transformers.pipeline"),
             patch("torch.backends.mps.is_available", return_value=False),
             patch("torch.cuda.is_available", return_value=False),
         ):
