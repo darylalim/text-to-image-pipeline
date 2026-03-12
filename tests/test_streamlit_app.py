@@ -313,9 +313,7 @@ class TestLLMInit:
     def test_llm_device_mps(self):
         mock_pipe = _make_mock_pipe()
         mock_llm = _make_mock_llm()
-        streamlit_app, _ = _reload_app(
-            mock_pipe, mock_llm=mock_llm, mps_available=True
-        )
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm, mps_available=True)
         with (
             patch("streamlit_app.transformers_pipeline") as mock_tp,
             patch("torch.backends.mps.is_available", return_value=True),
