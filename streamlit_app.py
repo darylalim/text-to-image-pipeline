@@ -119,6 +119,28 @@ if __name__ == "__main__":
 
     prompt = st.text_input("Prompt", placeholder="Enter your prompt")
 
+    if "last_prompt" not in st.session_state:
+        st.session_state.last_prompt = ""
+
+    if prompt != st.session_state.last_prompt:
+        st.session_state.last_prompt = prompt
+        st.session_state.pop("enhanced_prompt", None)
+        st.session_state.pop("enhanced_prompt_area", None)
+
+    if st.button("Enhance Prompt"):
+        with st.spinner("Enhancing prompt..."):
+            enhanced = upsample_prompt(prompt)
+        st.session_state.enhanced_prompt = enhanced
+
+    if "enhanced_prompt" in st.session_state:
+        final_prompt = st.text_area(
+            "Enhanced Prompt",
+            value=st.session_state.enhanced_prompt,
+            key="enhanced_prompt_area",
+        )
+    else:
+        final_prompt = prompt
+
     with st.expander("Advanced Settings"):
         seed_val = st.slider(
             "Seed",
@@ -169,7 +191,7 @@ if __name__ == "__main__":
     if st.button("Run", type="primary"):
         with st.spinner("Generating..."):
             image, used_seed = infer(
-                prompt,
+                final_prompt,
                 seed_val,
                 randomize_seed,
                 width,
