@@ -349,6 +349,126 @@ class TestLLMInit:
             )
 
 
+EXPECTED_SYSTEM_PROMPT = (
+    "You are a prompt engineer. Rewrite the user's text into a detailed, "
+    "vivid image generation prompt. Keep it under 100 words. Output only "
+    "the enhanced prompt, nothing else."
+)
+
+
+class TestUpsamplePrompt:
+    def test_chat_message_format(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            streamlit_app.upsample_prompt("a cat")
+            mock_llm.assert_called_once()
+            messages = mock_llm.call_args[0][0]
+            assert messages[0] == {"role": "system", "content": EXPECTED_SYSTEM_PROMPT}
+            assert messages[1] == {"role": "user", "content": "a cat"}
+
+    def test_generation_kwargs(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            streamlit_app.upsample_prompt("a cat")
+            kwargs = mock_llm.call_args[1]
+            assert kwargs["max_new_tokens"] == 150
+            assert kwargs["do_sample"] is True
+            assert kwargs["temperature"] == 0.7
+            assert kwargs["top_p"] == 0.9
+
+    def test_extracts_assistant_content(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        mock_llm.return_value = [
+            {
+                "generated_text": [
+                    {"role": "system", "content": "..."},
+                    {"role": "user", "content": "a cat"},
+                    {"role": "assistant", "content": "  A majestic feline  "},
+                ]
+            }
+        ]
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            result = streamlit_app.upsample_prompt("a cat")
+            assert result == "A majestic feline"
+
+    def test_empty_output_returns_original(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        mock_llm.return_value = [
+            {
+                "generated_text": [
+                    {"role": "assistant", "content": ""},
+                ]
+            }
+        ]
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            result = streamlit_app.upsample_prompt("a cat")
+            assert result == "a cat"
+
+    def test_whitespace_only_output_returns_original(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        mock_llm.return_value = [
+            {
+                "generated_text": [
+                    {"role": "assistant", "content": "   "},
+                ]
+            }
+        ]
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            result = streamlit_app.upsample_prompt("a cat")
+            assert result == "a cat"
+
+    def test_exception_returns_original(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        mock_llm.side_effect = RuntimeError("OOM")
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("streamlit_app.st") as mock_st,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            result = streamlit_app.upsample_prompt("a cat")
+            assert result == "a cat"
+            mock_st.warning.assert_called_once()
+
+
 class TestStreamlitApp:
     def test_get_pipe_uses_cache_resource(self):
         """Verify _get_pipe is decorated with @st.cache_resource (not passthrough)."""

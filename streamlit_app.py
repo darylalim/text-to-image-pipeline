@@ -52,6 +52,36 @@ def _get_llm():
     )
 
 
+UPSAMPLE_SYSTEM_PROMPT = (
+    "You are a prompt engineer. Rewrite the user's text into a detailed, "
+    "vivid image generation prompt. Keep it under 100 words. Output only "
+    "the enhanced prompt, nothing else."
+)
+
+
+def upsample_prompt(prompt):
+    try:
+        llm = _get_llm()
+        messages = [
+            {"role": "system", "content": UPSAMPLE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        result = llm(
+            messages,
+            max_new_tokens=150,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+        )
+        enhanced = result[0]["generated_text"][-1]["content"].strip()
+        if not enhanced:
+            return prompt
+        return enhanced
+    except Exception:
+        st.warning("Prompt enhancement failed. Using original prompt.")
+        return prompt
+
+
 def infer(
     prompt,
     seed=42,
