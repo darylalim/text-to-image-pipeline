@@ -76,6 +76,12 @@ class TestConstants:
             "Base (50 steps)": 4.0,
         }
 
+    def test_pipes_maps_to_getters(self):
+        import streamlit_app
+
+        assert streamlit_app.PIPES["Distilled (4 steps)"] is streamlit_app._get_pipe_distilled
+        assert streamlit_app.PIPES["Base (50 steps)"] is streamlit_app._get_pipe_base
+
 
 class TestDetectDevice:
     def test_mps_when_available(self):
@@ -159,7 +165,7 @@ class TestPipelineLoading:
                 token=streamlit_app.hf_token,
             )
 
-    def test_pipeline_moved_to_device(self):
+    def test_distilled_pipeline_moved_to_cpu(self):
         mock_pipe = _make_mock_pipe()
         streamlit_app, _ = _reload_app(mock_pipe)
         with (
@@ -171,7 +177,7 @@ class TestPipelineLoading:
             streamlit_app._get_pipe_distilled()
             mock_pipe.to.assert_called_with("cpu")
 
-    def test_pipeline_moved_to_mps_device(self):
+    def test_distilled_pipeline_moved_to_mps(self):
         mock_pipe = _make_mock_pipe()
         streamlit_app, _ = _reload_app(mock_pipe)
         with (
@@ -183,7 +189,7 @@ class TestPipelineLoading:
             streamlit_app._get_pipe_distilled()
             mock_pipe.to.assert_called_with("mps")
 
-    def test_cpu_offload_on_cuda(self):
+    def test_distilled_cpu_offload_on_cuda(self):
         mock_pipe = _make_mock_pipe()
         streamlit_app, _ = _reload_app(mock_pipe)
         with (
@@ -193,6 +199,43 @@ class TestPipelineLoading:
         ):
             mock_cls.from_pretrained.return_value = mock_pipe
             streamlit_app._get_pipe_distilled()
+            mock_pipe.enable_model_cpu_offload.assert_called()
+            mock_pipe.to.assert_not_called()
+
+    def test_base_pipeline_moved_to_cpu(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        with (
+            patch("streamlit_app.Flux2KleinPipeline") as mock_cls,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_cls.from_pretrained.return_value = mock_pipe
+            streamlit_app._get_pipe_base()
+            mock_pipe.to.assert_called_with("cpu")
+
+    def test_base_pipeline_moved_to_mps(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        with (
+            patch("streamlit_app.Flux2KleinPipeline") as mock_cls,
+            patch("torch.backends.mps.is_available", return_value=True),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_cls.from_pretrained.return_value = mock_pipe
+            streamlit_app._get_pipe_base()
+            mock_pipe.to.assert_called_with("mps")
+
+    def test_base_cpu_offload_on_cuda(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        with (
+            patch("streamlit_app.Flux2KleinPipeline") as mock_cls,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=True),
+        ):
+            mock_cls.from_pretrained.return_value = mock_pipe
+            streamlit_app._get_pipe_base()
             mock_pipe.enable_model_cpu_offload.assert_called()
             mock_pipe.to.assert_not_called()
 
