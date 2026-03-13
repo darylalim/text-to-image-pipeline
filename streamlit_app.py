@@ -5,6 +5,7 @@ import streamlit as st
 import torch
 from diffusers import Flux2KleinPipeline
 from dotenv import load_dotenv
+from PIL import Image
 from transformers import GenerationConfig, pipeline as transformers_pipeline
 
 load_dotenv()
@@ -162,6 +163,16 @@ if __name__ == "__main__":
 
     prompt = st.text_input("Prompt", placeholder="Enter your prompt")
 
+    uploaded_files = st.file_uploader(
+        "Input images (optional)",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+    )
+
+    image_list = None
+    if uploaded_files:
+        image_list = [Image.open(f) for f in uploaded_files]
+
     if "last_prompt" not in st.session_state:
         st.session_state.last_prompt = ""
 
@@ -172,7 +183,7 @@ if __name__ == "__main__":
 
     if st.button("Enhance Prompt"):
         with st.spinner("Enhancing prompt..."):
-            enhanced = upsample_prompt(prompt)
+            enhanced = upsample_prompt(prompt, has_images=bool(uploaded_files))
         st.session_state.enhanced_prompt = enhanced
 
     if "enhanced_prompt" in st.session_state:
@@ -183,6 +194,19 @@ if __name__ == "__main__":
         )
     else:
         final_prompt = prompt
+
+    mode = st.radio(
+        "Mode",
+        options=["Distilled (4 steps)", "Base (50 steps)"],
+        horizontal=True,
+    )
+
+    if "prev_mode" not in st.session_state:
+        st.session_state.prev_mode = mode
+    if mode != st.session_state.prev_mode:
+        st.session_state.prev_mode = mode
+        st.session_state.guidance_scale_slider = DEFAULT_CFG[mode]
+        st.session_state.steps_slider = DEFAULT_STEPS[mode]
 
     with st.expander("Advanced Settings"):
         seed_val = st.slider(
@@ -218,17 +242,19 @@ if __name__ == "__main__":
             guidance_scale = st.slider(
                 "Guidance scale",
                 min_value=0.0,
-                max_value=5.0,
-                value=1.0,
+                max_value=10.0,
+                value=DEFAULT_CFG["Distilled (4 steps)"],
                 step=0.1,
+                key="guidance_scale_slider",
             )
         with col4:
             num_inference_steps = st.slider(
                 "Number of inference steps",
                 min_value=1,
-                max_value=20,
-                value=4,
+                max_value=100,
+                value=DEFAULT_STEPS["Distilled (4 steps)"],
                 step=1,
+                key="steps_slider",
             )
 
     if st.button("Run", type="primary"):
@@ -241,6 +267,8 @@ if __name__ == "__main__":
                 height,
                 guidance_scale,
                 num_inference_steps,
+                mode=mode,
+                image_list=image_list,
             )
         st.session_state.result_image = image
         st.session_state.result_seed = used_seed if randomize_seed else None
