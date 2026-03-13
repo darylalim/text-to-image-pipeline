@@ -73,18 +73,28 @@ def _get_llm():
     )
 
 
-UPSAMPLE_SYSTEM_PROMPT = (
+UPSAMPLE_PROMPT_TEXT_ONLY = (
     "You are a prompt engineer. Rewrite the user's text into a detailed, "
     "vivid image generation prompt. Keep it under 100 words. Output only "
     "the enhanced prompt, nothing else."
 )
 
+UPSAMPLE_PROMPT_WITH_IMAGES = (
+    "You are an image-editing expert. Convert the user's editing request "
+    "into one concise instruction (50-80 words). Specify what changes and "
+    "what stays the same. Use concrete language. Output only the final "
+    "instruction, nothing else."
+)
 
-def upsample_prompt(prompt):
+
+def upsample_prompt(prompt, has_images=False):
     try:
         llm = _get_llm()
+        system_prompt = (
+            UPSAMPLE_PROMPT_WITH_IMAGES if has_images else UPSAMPLE_PROMPT_TEXT_ONLY
+        )
         messages = [
-            {"role": "system", "content": UPSAMPLE_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ]
         generation_config = GenerationConfig(

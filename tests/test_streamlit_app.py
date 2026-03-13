@@ -520,6 +520,13 @@ EXPECTED_SYSTEM_PROMPT = (
     "the enhanced prompt, nothing else."
 )
 
+EXPECTED_SYSTEM_PROMPT_WITH_IMAGES = (
+    "You are an image-editing expert. Convert the user's editing request "
+    "into one concise instruction (50-80 words). Specify what changes and "
+    "what stays the same. Use concrete language. Output only the final "
+    "instruction, nothing else."
+)
+
 
 class TestUpsamplePrompt:
     def test_chat_message_format(self):
@@ -635,6 +642,40 @@ class TestUpsamplePrompt:
             mock_st.warning.assert_called_once_with(
                 "Prompt enhancement failed. Using original prompt."
             )
+
+    def test_uses_text_only_prompt_without_images(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            streamlit_app.upsample_prompt("a cat", has_images=False)
+            messages = mock_llm.call_args[0][0]
+            assert messages[0] == {
+                "role": "system",
+                "content": EXPECTED_SYSTEM_PROMPT,
+            }
+
+    def test_uses_image_editing_prompt_with_images(self):
+        mock_pipe = _make_mock_pipe()
+        mock_llm = _make_mock_llm()
+        streamlit_app, _ = _reload_app(mock_pipe, mock_llm=mock_llm)
+        with (
+            patch("streamlit_app.transformers_pipeline") as mock_tp,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_tp.return_value = mock_llm
+            streamlit_app.upsample_prompt("make it blue", has_images=True)
+            messages = mock_llm.call_args[0][0]
+            assert messages[0] == {
+                "role": "system",
+                "content": EXPECTED_SYSTEM_PROMPT_WITH_IMAGES,
+            }
 
 
 class TestStreamlitApp:
