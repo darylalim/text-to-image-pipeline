@@ -7,6 +7,7 @@ Generate and edit images with [FLUX.2 Klein (4B)](https://huggingface.co/black-f
 - Text-to-image generation and image editing with FLUX.2 Klein (4B parameters)
 - Two model variants: Distilled (4 steps, fast) and Base (50 steps, higher quality)
 - Multi-image upload for editing and compositing workflows
+- Auto-dimension: width/height sliders adjust to match uploaded image aspect ratio
 - Prompt enhancement via SmolLM2-1.7B-Instruct (optional, loaded on first use)
 - Configurable seed, dimensions, guidance scale, and inference steps
 
