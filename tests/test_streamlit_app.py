@@ -79,7 +79,10 @@ class TestConstants:
     def test_pipes_maps_to_getters(self):
         import streamlit_app
 
-        assert streamlit_app.PIPES["Distilled (4 steps)"] is streamlit_app._get_pipe_distilled
+        assert (
+            streamlit_app.PIPES["Distilled (4 steps)"]
+            is streamlit_app._get_pipe_distilled
+        )
         assert streamlit_app.PIPES["Base (50 steps)"] is streamlit_app._get_pipe_base
 
 
@@ -497,6 +500,111 @@ class TestInfer:
             streamlit_app.infer("a cat")
             call_kwargs = mock_pipe.call_args[1]
             assert "image" not in call_kwargs
+
+
+class TestDimensionsFromImages:
+    def test_square_image(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (800, 800))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 1024
+
+    def test_landscape_image(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (1600, 800))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 512
+
+    def test_portrait_image(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (800, 1600))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 512
+        assert h == 1024
+
+    def test_rounds_to_multiple_of_32(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (1000, 700))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w % 32 == 0
+        assert h % 32 == 0
+
+    def test_clamps_min_to_512(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (3000, 500))]
+        _, h = streamlit_app._dimensions_from_images(images)
+        assert h >= 512
+
+    def test_zero_height_returns_default(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (100, 0))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 1024
+
+    def test_zero_width_returns_default(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (0, 100))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 1024
+
+    def test_uses_first_image_only(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (1600, 800)), Image.new("RGB", (800, 1600))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 512
+
+    def test_4_3_aspect_ratio(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (1200, 900))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 768
+
+    def test_16_9_aspect_ratio(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (1920, 1080))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 576
+
+    def test_portrait_3_4_aspect_ratio(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (900, 1200))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 768
+        assert h == 1024
+
+    def test_extreme_panoramic_clamps_height(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (5000, 500))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 1024
+        assert h == 512
+
+    def test_extreme_tall_clamps_width(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        images = [Image.new("RGB", (500, 5000))]
+        w, h = streamlit_app._dimensions_from_images(images)
+        assert w == 512
+        assert h == 1024
 
 
 class TestLLMInit:

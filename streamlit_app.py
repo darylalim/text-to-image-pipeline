@@ -114,6 +114,21 @@ def upsample_prompt(prompt, has_images=False):
         return prompt
 
 
+def _dimensions_from_images(image_list):
+    """Calculate output dimensions matching the aspect ratio of the first input image."""
+    w, h = image_list[0].size
+    if w == 0 or h == 0:
+        return 1024, 1024
+    aspect = w / h
+    if aspect >= 1:
+        new_w = 1024
+        new_h = round(1024 / aspect / 32) * 32
+    else:
+        new_h = 1024
+        new_w = round(1024 * aspect / 32) * 32
+    return max(512, min(MAX_IMAGE_SIZE, new_w)), max(512, min(MAX_IMAGE_SIZE, new_h))
+
+
 def infer(
     prompt,
     seed=42,
@@ -173,6 +188,21 @@ if __name__ == "__main__":
     if uploaded_files:
         image_list = [Image.open(f) for f in uploaded_files]
 
+    _upload_key = (
+        tuple((f.name, f.file_id) for f in uploaded_files) if uploaded_files else ()
+    )
+    if "prev_uploads" not in st.session_state:
+        st.session_state.prev_uploads = ()
+    if _upload_key != st.session_state.prev_uploads:
+        st.session_state.prev_uploads = _upload_key
+        if image_list:
+            _w, _h = _dimensions_from_images(image_list)
+            st.session_state.width_slider = _w
+            st.session_state.height_slider = _h
+        else:
+            st.session_state.width_slider = 1024
+            st.session_state.height_slider = 1024
+
     if "last_prompt" not in st.session_state:
         st.session_state.last_prompt = ""
 
@@ -227,6 +257,7 @@ if __name__ == "__main__":
                 max_value=MAX_IMAGE_SIZE,
                 value=1024,
                 step=32,
+                key="width_slider",
             )
         with col2:
             height = st.slider(
@@ -235,6 +266,7 @@ if __name__ == "__main__":
                 max_value=MAX_IMAGE_SIZE,
                 value=1024,
                 step=32,
+                key="height_slider",
             )
 
         col3, col4 = st.columns(2)
