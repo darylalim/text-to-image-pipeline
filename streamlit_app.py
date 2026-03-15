@@ -61,6 +61,54 @@ PIPES = {
 DEFAULT_STEPS = {"Distilled (4 steps)": 4, "Base (50 steps)": 50}
 DEFAULT_CFG = {"Distilled (4 steps)": 1.0, "Base (50 steps)": 4.0}
 
+EXAMPLES = [
+    {
+        "label": "Gradient Vase",
+        "prompt": (
+            "Create a vase on a table in living room, the color of the vase is "
+            "a gradient of color, starting with #02eb3c color and finishing with "
+            "#edfa3c. The flowers inside the vase have the color #ff0088"
+        ),
+        "images": None,
+    },
+    {
+        "label": "Cat Sticker",
+        "prompt": (
+            "A kawaii die-cut sticker of a chubby orange cat, featuring big "
+            "sparkly eyes and a happy smile with paws raised in greeting and a "
+            "heart-shaped pink nose. The design should have smooth rounded lines "
+            "with black outlines and soft gradient shading with pink cheeks."
+        ),
+        "images": None,
+    },
+    {
+        "label": "Capybara in Rain",
+        "prompt": (
+            "Soaking wet capybara taking shelter under a banana leaf in the "
+            "rainy jungle, close up photo"
+        ),
+        "images": None,
+    },
+    {
+        "label": "Berlin TV Tower",
+        "prompt": (
+            "Photorealistic infographic showing the complete Berlin TV Tower "
+            "(Fernsehturm) from ground base to antenna tip, full vertical view "
+            "with entire structure visible including concrete shaft, metallic "
+            "sphere, and antenna spire."
+        ),
+        "images": None,
+    },
+    {
+        "label": "Multi-image Edit",
+        "prompt": (
+            "The person from image 1 is petting the cat from image 2, the bird "
+            "from image 3 is next to them"
+        ),
+        "images": ["examples/person.webp", "examples/cat.webp", "examples/bird.webp"],
+    },
+]
+
 
 @st.cache_resource
 def _get_vlm():
@@ -212,7 +260,25 @@ if __name__ == "__main__":
         "# [FLUX.2 Klein (4B)](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B)"
     )
 
-    prompt = st.text_input("Prompt", placeholder="Enter your prompt")
+    prompt = st.text_input(
+        "Prompt", placeholder="Enter your prompt", key="prompt_input"
+    )
+
+    example_cols = st.columns(len(EXAMPLES))
+    for i, example in enumerate(EXAMPLES):
+        with example_cols[i]:
+            if st.button(example["label"], key=f"example_{i}"):
+                st.session_state.prompt_input = example["prompt"]
+                st.session_state.last_prompt = example["prompt"]
+                if example["images"]:
+                    st.session_state.example_images = [
+                        Image.open(p) for p in example["images"]
+                    ]
+                else:
+                    st.session_state.pop("example_images", None)
+                st.session_state.pop("enhanced_prompt", None)
+                st.session_state.pop("enhanced_prompt_area", None)
+                st.rerun()
 
     uploaded_files = st.file_uploader(
         "Input images (optional)",
@@ -223,14 +289,23 @@ if __name__ == "__main__":
     image_list = None
     if uploaded_files:
         image_list = [Image.open(f) for f in uploaded_files]
+        st.session_state.pop("example_images", None)
+    elif "example_images" in st.session_state:
+        image_list = st.session_state.example_images
 
     _upload_key = (
         tuple((f.name, f.file_id) for f in uploaded_files) if uploaded_files else ()
     )
-    if "prev_uploads" not in st.session_state:
-        st.session_state.prev_uploads = ()
-    if _upload_key != st.session_state.prev_uploads:
-        st.session_state.prev_uploads = _upload_key
+    _example_key = (
+        tuple(id(img) for img in st.session_state.example_images)
+        if "example_images" in st.session_state and not uploaded_files
+        else ()
+    )
+    _image_key = (_upload_key, _example_key)
+    if "prev_images" not in st.session_state:
+        st.session_state.prev_images = ((), ())
+    if _image_key != st.session_state.prev_images:
+        st.session_state.prev_images = _image_key
         if image_list:
             _w, _h = _dimensions_from_images(image_list)
             st.session_state.width_slider = _w
@@ -246,6 +321,10 @@ if __name__ == "__main__":
         st.session_state.last_prompt = prompt
         st.session_state.pop("enhanced_prompt", None)
         st.session_state.pop("enhanced_prompt_area", None)
+        st.session_state.pop("example_images", None)
+
+    if "example_images" in st.session_state and not uploaded_files:
+        st.image(st.session_state.example_images, width=150)
 
     if st.button("Enhance Prompt"):
         with st.spinner("Enhancing prompt..."):
