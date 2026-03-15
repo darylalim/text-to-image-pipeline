@@ -75,16 +75,33 @@ def _get_llm():
 
 
 UPSAMPLE_PROMPT_TEXT_ONLY = (
-    "You are a prompt engineer. Rewrite the user's text into a detailed, "
-    "vivid image generation prompt. Keep it under 100 words. Output only "
-    "the enhanced prompt, nothing else."
+    "You are an expert prompt engineer for FLUX.2 by Black Forest Labs. "
+    "Rewrite user prompts to be more descriptive while strictly preserving "
+    "their core subject and intent. Keep the enhanced prompt under 120 "
+    "words.\n\n"
+    "Guidelines:\n"
+    "- Add concrete visual specifics: textures, materials, lighting, "
+    "shadows, and spatial relationships.\n"
+    "- Put ALL text that should appear in the image in quotation marks "
+    "(signs, labels, screens, etc.) - without quotes, the model generates "
+    "gibberish.\n\n"
+    "Output only the revised prompt and nothing else."
 )
 
 UPSAMPLE_PROMPT_WITH_IMAGES = (
     "You are an image-editing expert. Convert the user's editing request "
-    "into one concise instruction (50-80 words). Specify what changes and "
-    "what stays the same. Use concrete language. Output only the final "
-    "instruction, nothing else."
+    "into one concise instruction (50-80 words, ~30 for brief requests).\n\n"
+    "Rules:\n"
+    "- Single instruction only, no commentary\n"
+    "- Use clear, analytical language (avoid vague words like "
+    '"whimsical" or "cascading")\n'
+    "- Specify what changes AND what stays the same (face, lighting, "
+    "composition)\n"
+    "- Turn negatives into positives "
+    '("don\'t change X" becomes "keep X")\n'
+    '- Make abstractions concrete ("futuristic" becomes '
+    '"glowing cyan neon, metallic panels")\n\n'
+    "Output only the final instruction in plain text and nothing else."
 )
 
 
