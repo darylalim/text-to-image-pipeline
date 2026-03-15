@@ -1,6 +1,6 @@
 # FLUX.2 Klein Pipeline
 
-Generate and edit images with [FLUX.2 Klein (4B)](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) from Black Forest Labs. Includes vision-aware prompt enhancement using [SmolVLM-500M-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM-500M-Instruct).
+Generate and edit images with [FLUX.2 Klein (4B)](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) from Black Forest Labs. Vision-aware prompt enhancement via [SmolVLM-500M-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM-500M-Instruct).
 
 ## Features
 
@@ -8,8 +8,8 @@ Generate and edit images with [FLUX.2 Klein (4B)](https://huggingface.co/black-f
 - Two model variants: Distilled (4 steps, fast) and Base (50 steps, higher quality)
 - Multi-image upload for editing and compositing workflows
 - Auto-dimension: width/height sliders adjust to match uploaded image aspect ratio
-- Vision-aware prompt enhancement via SmolVLM-500M-Instruct — sees uploaded images when enhancing editing prompts (optional, loaded on first use)
-- Pre-built example prompts with bundled images for quick start
+- Vision-aware prompt enhancement via SmolVLM-500M-Instruct (optional, loaded on first use)
+- Pre-built example prompts with bundled images
 - Configurable seed, dimensions, guidance scale, and inference steps
 
 ## Requirements

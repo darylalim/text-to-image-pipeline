@@ -1,6 +1,11 @@
-.DS_Store
+# Environment
 .env
+.venv/
+
+# Python
+__pycache__/
+
+# Tools
+.DS_Store
 .pytest_cache/
 .ruff_cache/
-.venv/
-__pycache__/
