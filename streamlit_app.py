@@ -1,5 +1,6 @@
 import os
 import random
+from functools import lru_cache
 
 import streamlit as st
 import torch
@@ -18,7 +19,13 @@ MAX_IMAGE_SIZE = 1440
 REPO_ID_DISTILLED = "black-forest-labs/FLUX.2-klein-4B"
 REPO_ID_BASE = "black-forest-labs/FLUX.2-klein-base-4B"
 
+MODE_DEFAULTS = {
+    "Distilled (4 steps)": {"steps": 4, "cfg": 1.0},
+    "Base (50 steps)": {"steps": 50, "cfg": 4.0},
+}
 
+
+@lru_cache
 def _detect_device():
     if torch.backends.mps.is_available():
         return "mps", torch.bfloat16
@@ -29,7 +36,6 @@ def _detect_device():
 
 def _load_pipe(repo_id):
     device, dtype = _detect_device()
-
     pipe = Flux2KleinPipeline.from_pretrained(
         repo_id,
         torch_dtype=dtype,
@@ -57,9 +63,6 @@ PIPES = {
     "Distilled (4 steps)": _get_pipe_distilled,
     "Base (50 steps)": _get_pipe_base,
 }
-
-DEFAULT_STEPS = {"Distilled (4 steps)": 4, "Base (50 steps)": 50}
-DEFAULT_CFG = {"Distilled (4 steps)": 1.0, "Base (50 steps)": 4.0}
 
 EXAMPLES = [
     {
@@ -159,19 +162,14 @@ def upsample_prompt(prompt, image_list=None):
         system_prompt = (
             UPSAMPLE_PROMPT_WITH_IMAGES if image_list else UPSAMPLE_PROMPT_TEXT_ONLY
         )
+        user_content = [
+            *([{"type": "image"} for _ in image_list] if image_list else []),
+            {"type": "text", "text": prompt},
+        ]
         messages = [
             {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": user_content},
         ]
-        if image_list:
-            user_content = [
-                *[{"type": "image"} for _ in image_list],
-                {"type": "text", "text": prompt},
-            ]
-            messages.append({"role": "user", "content": user_content})
-        else:
-            messages.append(
-                {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            )
         prompt_text = processor.apply_chat_template(
             messages, add_generation_prompt=True
         )
@@ -190,9 +188,7 @@ def upsample_prompt(prompt, image_list=None):
             output_ids[:, inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )[0].strip()
-        if not enhanced:
-            return prompt
-        return enhanced
+        return enhanced or prompt
     except Exception:
         st.warning("Prompt enhancement failed. Using original prompt.")
         return prompt
@@ -201,8 +197,7 @@ def upsample_prompt(prompt, image_list=None):
 def _resolve_prompt(prompt, image_list, auto_enhance, already_enhanced):
     """Resolve the final prompt, optionally auto-enhancing via the VLM."""
     if auto_enhance and not already_enhanced:
-        enhanced = upsample_prompt(prompt, image_list=image_list)
-        return enhanced, True
+        return upsample_prompt(prompt, image_list=image_list), True
     return prompt, False
 
 
@@ -233,10 +228,11 @@ def infer(
     image_list=None,
     progress_callback=None,
 ):
+    defaults = MODE_DEFAULTS[mode]
     if guidance_scale is None:
-        guidance_scale = DEFAULT_CFG[mode]
+        guidance_scale = defaults["cfg"]
     if num_inference_steps is None:
-        num_inference_steps = DEFAULT_STEPS[mode]
+        num_inference_steps = defaults["steps"]
 
     if randomize_seed:
         seed = random.randint(0, MAX_SEED)
@@ -270,6 +266,12 @@ def infer(
     return image, seed
 
 
+def _clear_enhancement():
+    """Remove all enhancement-related session state."""
+    for key in ("enhanced_prompt", "enhanced_prompt_area", "auto_enhanced_prompt"):
+        st.session_state.pop(key, None)
+
+
 if __name__ == "__main__":
     st.set_page_config(page_title="FLUX.2 Klein", layout="centered")
 
@@ -293,8 +295,7 @@ if __name__ == "__main__":
                     ]
                 else:
                     st.session_state.pop("example_images", None)
-                st.session_state.pop("enhanced_prompt", None)
-                st.session_state.pop("enhanced_prompt_area", None)
+                _clear_enhancement()
                 st.rerun()
 
     uploaded_files = st.file_uploader(
@@ -310,18 +311,14 @@ if __name__ == "__main__":
     elif "example_images" in st.session_state:
         image_list = st.session_state.example_images
 
-    _upload_key = (
-        tuple((f.name, f.file_id) for f in uploaded_files) if uploaded_files else ()
-    )
-    _example_key = (
-        tuple(id(img) for img in st.session_state.example_images)
-        if "example_images" in st.session_state and not uploaded_files
+    _image_key = (
+        tuple((f.name, f.file_id) for f in uploaded_files)
+        if uploaded_files
+        else tuple(id(img) for img in image_list)
+        if image_list
         else ()
     )
-    _image_key = (_upload_key, _example_key)
-    if "prev_images" not in st.session_state:
-        st.session_state.prev_images = ((), ())
-    if _image_key != st.session_state.prev_images:
+    if _image_key != st.session_state.get("prev_images", ()):
         st.session_state.prev_images = _image_key
         if image_list:
             _w, _h = _dimensions_from_images(image_list)
@@ -336,10 +333,8 @@ if __name__ == "__main__":
 
     if prompt != st.session_state.last_prompt:
         st.session_state.last_prompt = prompt
-        st.session_state.pop("enhanced_prompt", None)
-        st.session_state.pop("enhanced_prompt_area", None)
+        _clear_enhancement()
         st.session_state.pop("example_images", None)
-        st.session_state.pop("auto_enhanced_prompt", None)
 
     if "example_images" in st.session_state and not uploaded_files:
         st.image(st.session_state.example_images, width=150)
@@ -364,12 +359,11 @@ if __name__ == "__main__":
         horizontal=True,
     )
 
-    if "prev_mode" not in st.session_state:
+    if mode != st.session_state.get("prev_mode"):
         st.session_state.prev_mode = mode
-    if mode != st.session_state.prev_mode:
-        st.session_state.prev_mode = mode
-        st.session_state.guidance_scale_slider = DEFAULT_CFG[mode]
-        st.session_state.steps_slider = DEFAULT_STEPS[mode]
+        defaults = MODE_DEFAULTS[mode]
+        st.session_state.guidance_scale_slider = defaults["cfg"]
+        st.session_state.steps_slider = defaults["steps"]
 
     with st.expander("Advanced Settings"):
         auto_enhance = st.checkbox(
@@ -409,13 +403,14 @@ if __name__ == "__main__":
                 key="height_slider",
             )
 
+        _distilled_defaults = MODE_DEFAULTS["Distilled (4 steps)"]
         col3, col4 = st.columns(2)
         with col3:
             guidance_scale = st.slider(
                 "Guidance scale",
                 min_value=0.0,
                 max_value=10.0,
-                value=DEFAULT_CFG["Distilled (4 steps)"],
+                value=_distilled_defaults["cfg"],
                 step=0.1,
                 key="guidance_scale_slider",
             )
@@ -424,7 +419,7 @@ if __name__ == "__main__":
                 "Number of inference steps",
                 min_value=1,
                 max_value=100,
-                value=DEFAULT_STEPS["Distilled (4 steps)"],
+                value=_distilled_defaults["steps"],
                 step=1,
                 key="steps_slider",
             )
