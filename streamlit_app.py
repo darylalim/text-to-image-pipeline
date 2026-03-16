@@ -198,6 +198,14 @@ def upsample_prompt(prompt, image_list=None):
         return prompt
 
 
+def _resolve_prompt(prompt, image_list, auto_enhance, already_enhanced):
+    """Resolve the final prompt, optionally auto-enhancing via the VLM."""
+    if auto_enhance and not already_enhanced:
+        enhanced = upsample_prompt(prompt, image_list=image_list)
+        return enhanced, True
+    return prompt, False
+
+
 def _dimensions_from_images(image_list):
     """Calculate output dimensions matching the aspect ratio of the first input image."""
     w, h = image_list[0].size
@@ -331,6 +339,7 @@ if __name__ == "__main__":
         st.session_state.pop("enhanced_prompt", None)
         st.session_state.pop("enhanced_prompt_area", None)
         st.session_state.pop("example_images", None)
+        st.session_state.pop("auto_enhanced_prompt", None)
 
     if "example_images" in st.session_state and not uploaded_files:
         st.image(st.session_state.example_images, width=150)
@@ -363,6 +372,13 @@ if __name__ == "__main__":
         st.session_state.steps_slider = DEFAULT_STEPS[mode]
 
     with st.expander("Advanced Settings"):
+        auto_enhance = st.checkbox(
+            "Auto-enhance prompt",
+            value=False,
+            help="Automatically enhance the prompt using the VLM before generating",
+            key="auto_enhance_checkbox",
+        )
+
         seed_val = st.slider(
             "Seed",
             min_value=0,
@@ -414,13 +430,21 @@ if __name__ == "__main__":
             )
 
     if st.button("Run", type="primary"):
+        st.session_state.pop("auto_enhanced_prompt", None)
+        already_enhanced = "enhanced_prompt" in st.session_state
+        run_prompt, was_auto_enhanced = _resolve_prompt(
+            final_prompt, image_list, auto_enhance, already_enhanced
+        )
+        if was_auto_enhanced:
+            st.session_state.auto_enhanced_prompt = run_prompt
+
         progress_bar = st.progress(0, text="Starting...")
 
         def _update_progress(step, total):
             progress_bar.progress(step / total, text=f"Step {step}/{total}")
 
         image, used_seed = infer(
-            final_prompt,
+            run_prompt,
             seed_val,
             randomize_seed,
             width,
@@ -434,6 +458,9 @@ if __name__ == "__main__":
         progress_bar.empty()
         st.session_state.result_image = image
         st.session_state.result_seed = used_seed if randomize_seed else None
+
+    if "auto_enhanced_prompt" in st.session_state:
+        st.info(f"Enhanced prompt: {st.session_state.auto_enhanced_prompt}")
 
     if "result_image" in st.session_state:
         st.image(st.session_state.result_image)

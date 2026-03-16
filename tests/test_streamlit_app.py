@@ -562,6 +562,7 @@ class TestInfer:
                 "a cat", num_inference_steps=4, progress_callback=callback
             )
             on_step_end = mock_pipe.call_args[1]["callback_on_step_end"]
+            # Simulate the pipeline calling the callback at step 0
             result = on_step_end(mock_pipe, 0, 999, {"latents": None})
             callback.assert_called_once_with(1, 4)
             assert isinstance(result, dict)
@@ -1070,6 +1071,96 @@ class TestUpsamplePrompt:
             }
             call_kwargs = mock_processor.call_args[1]
             assert "images" not in call_kwargs
+
+
+class TestResolvePrompt:
+    def test_returns_original_when_auto_enhance_off(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        result, was_enhanced = streamlit_app._resolve_prompt(
+            "a cat", None, auto_enhance=False, already_enhanced=False
+        )
+        assert result == "a cat"
+        assert was_enhanced is False
+
+    def test_returns_original_when_already_enhanced(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        result, was_enhanced = streamlit_app._resolve_prompt(
+            "a cat", None, auto_enhance=True, already_enhanced=True
+        )
+        assert result == "a cat"
+        assert was_enhanced is False
+
+    def test_enhances_when_auto_enhance_on_and_not_already_enhanced(self):
+        mock_pipe = _make_mock_pipe()
+        mock_vlm = _make_mock_vlm()
+        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        with (
+            patch("streamlit_app.AutoProcessor") as mock_ap,
+            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_processor, mock_model = mock_vlm
+            mock_ap.from_pretrained.return_value = mock_processor
+            mock_vm.from_pretrained.return_value = mock_model
+            result, was_enhanced = streamlit_app._resolve_prompt(
+                "a cat", None, auto_enhance=True, already_enhanced=False
+            )
+            assert result == "enhanced prompt"
+            assert was_enhanced is True
+
+    def test_enhances_with_images(self):
+        mock_pipe = _make_mock_pipe()
+        mock_vlm = _make_mock_vlm()
+        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        images = [Image.new("RGB", (64, 64))]
+        with (
+            patch("streamlit_app.AutoProcessor") as mock_ap,
+            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_processor, mock_model = mock_vlm
+            mock_ap.from_pretrained.return_value = mock_processor
+            mock_vm.from_pretrained.return_value = mock_model
+            result, was_enhanced = streamlit_app._resolve_prompt(
+                "edit this", images, auto_enhance=True, already_enhanced=False
+            )
+            assert was_enhanced is True
+            call_kwargs = mock_processor.call_args[1]
+            assert call_kwargs["images"] is images
+
+    def test_both_flags_false(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        result, was_enhanced = streamlit_app._resolve_prompt(
+            "a cat", None, auto_enhance=False, already_enhanced=True
+        )
+        assert result == "a cat"
+        assert was_enhanced is False
+
+    def test_falls_back_on_vlm_error(self):
+        mock_pipe = _make_mock_pipe()
+        mock_vlm = _make_mock_vlm()
+        mock_processor, mock_model = mock_vlm
+        mock_model.generate.side_effect = RuntimeError("OOM")
+        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        with (
+            patch("streamlit_app.AutoProcessor") as mock_ap,
+            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
+            patch("streamlit_app.st"),
+            patch("torch.backends.mps.is_available", return_value=False),
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            mock_ap.from_pretrained.return_value = mock_processor
+            mock_vm.from_pretrained.return_value = mock_model
+            result, was_enhanced = streamlit_app._resolve_prompt(
+                "a cat", None, auto_enhance=True, already_enhanced=False
+            )
+            assert result == "a cat"
+            assert was_enhanced is True
 
 
 class TestStreamlitApp:
