@@ -79,20 +79,12 @@ class TestConstants:
 
         assert streamlit_app.REPO_ID_BASE == "black-forest-labs/FLUX.2-klein-base-4B"
 
-    def test_default_steps(self):
+    def test_mode_defaults(self):
         import streamlit_app
 
-        assert streamlit_app.DEFAULT_STEPS == {
-            "Distilled (4 steps)": 4,
-            "Base (50 steps)": 50,
-        }
-
-    def test_default_cfg(self):
-        import streamlit_app
-
-        assert streamlit_app.DEFAULT_CFG == {
-            "Distilled (4 steps)": 1.0,
-            "Base (50 steps)": 4.0,
+        assert streamlit_app.MODE_DEFAULTS == {
+            "Distilled (4 steps)": {"steps": 4, "cfg": 1.0},
+            "Base (50 steps)": {"steps": 50, "cfg": 4.0},
         }
 
     def test_pipes_maps_to_getters(self):
@@ -103,6 +95,11 @@ class TestConstants:
             is streamlit_app._get_pipe_distilled
         )
         assert streamlit_app.PIPES["Base (50 steps)"] is streamlit_app._get_pipe_base
+
+    def test_mode_defaults_keys_match_pipes(self):
+        import streamlit_app
+
+        assert set(streamlit_app.MODE_DEFAULTS) == set(streamlit_app.PIPES)
 
 
 class TestDetectDevice:
@@ -150,6 +147,23 @@ class TestDetectDevice:
         ):
             device, _ = streamlit_app._detect_device()
             assert device == "mps"
+
+    def test_detect_device_is_cached(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        assert hasattr(streamlit_app._detect_device, "cache_info")
+
+    def test_cached_result_returned(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        with (
+            patch("torch.backends.mps.is_available", return_value=False) as mock_mps,
+            patch("torch.cuda.is_available", return_value=False),
+        ):
+            result1 = streamlit_app._detect_device()
+            result2 = streamlit_app._detect_device()
+            assert result1 is result2
+            mock_mps.assert_called_once()
 
 
 class TestPipelineLoading:
@@ -1161,6 +1175,32 @@ class TestResolvePrompt:
             )
             assert result == "a cat"
             assert was_enhanced is True
+
+
+class TestClearEnhancement:
+    def test_clears_all_enhancement_keys(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        with patch("streamlit_app.st") as mock_st:
+            mock_st.session_state = {
+                "enhanced_prompt": "foo",
+                "enhanced_prompt_area": "bar",
+                "auto_enhanced_prompt": "baz",
+                "other_key": "keep",
+            }
+            streamlit_app._clear_enhancement()
+            assert "enhanced_prompt" not in mock_st.session_state
+            assert "enhanced_prompt_area" not in mock_st.session_state
+            assert "auto_enhanced_prompt" not in mock_st.session_state
+            assert mock_st.session_state["other_key"] == "keep"
+
+    def test_ignores_missing_keys(self):
+        mock_pipe = _make_mock_pipe()
+        streamlit_app, _ = _reload_app(mock_pipe)
+        with patch("streamlit_app.st") as mock_st:
+            mock_st.session_state = {"other_key": "keep"}
+            streamlit_app._clear_enhancement()
+            assert mock_st.session_state == {"other_key": "keep"}
 
 
 class TestStreamlitApp:
