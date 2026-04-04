@@ -90,13 +90,9 @@ EXAMPLES = [
 
 @st.cache_resource
 def _get_vlm():
-    device, dtype = _detect_device()
-    processor = AutoProcessor.from_pretrained("HuggingFaceTB/SmolVLM-500M-Instruct")
-    model = AutoModelForImageTextToText.from_pretrained(
-        "HuggingFaceTB/SmolVLM-500M-Instruct",
-        torch_dtype=dtype,
-    ).to(device)
-    return processor, model
+    model, processor = load_vlm(VLM_MODEL_ID)
+    config = load_config(VLM_MODEL_ID)
+    return model, processor, config
 
 
 UPSAMPLE_PROMPT_TEXT_ONLY = (
@@ -132,37 +128,30 @@ UPSAMPLE_PROMPT_WITH_IMAGES = (
 
 def upsample_prompt(prompt, image_list=None):
     try:
-        processor, model = _get_vlm()
-        device, _ = _detect_device()
+        model, processor, config = _get_vlm()
         system_prompt = (
             UPSAMPLE_PROMPT_WITH_IMAGES if image_list else UPSAMPLE_PROMPT_TEXT_ONLY
         )
-        user_content = [
-            *([{"type": "image"} for _ in image_list] if image_list else []),
-            {"type": "text", "text": prompt},
-        ]
         messages = [
-            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {"role": "user", "content": user_content},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
         ]
-        prompt_text = processor.apply_chat_template(
-            messages, add_generation_prompt=True
+        formatted_prompt = apply_chat_template(
+            processor,
+            config,
+            messages,
+            num_images=len(image_list) if image_list else 0,
         )
-        processor_kwargs = {"text": prompt_text, "return_tensors": "pt"}
-        if image_list:
-            processor_kwargs["images"] = image_list
-        inputs = processor(**processor_kwargs).to(device)
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=150,
-            do_sample=True,
+        result = vlm_generate(
+            model,
+            processor,
+            formatted_prompt,
+            image=image_list if image_list else None,
+            max_tokens=150,
             temperature=0.7,
             top_p=0.9,
         )
-        enhanced = processor.batch_decode(
-            output_ids[:, inputs["input_ids"].shape[1] :],
-            skip_special_tokens=True,
-        )[0].strip()
+        enhanced = result.text.strip()
         return enhanced or prompt
     except Exception:
         st.warning("Prompt enhancement failed. Using original prompt.")

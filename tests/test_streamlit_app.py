@@ -615,76 +615,37 @@ class TestDimensionsFromImages:
 
 class TestVLMInit:
     def test_vlm_loads_correct_model(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
             streamlit_app._get_vlm()
-            mock_ap.from_pretrained.assert_called_once_with(
-                "HuggingFaceTB/SmolVLM-500M-Instruct"
+            mock_load.assert_called_once_with(
+                "mlx-community/SmolVLM-500M-Instruct-bf16"
             )
-            mock_vm.from_pretrained.assert_called_once_with(
-                "HuggingFaceTB/SmolVLM-500M-Instruct",
-                torch_dtype=torch.bfloat16,
+            mock_lc.assert_called_once_with(
+                "mlx-community/SmolVLM-500M-Instruct-bf16"
             )
 
-    def test_vlm_device_cpu(self):
-        mock_pipe = _make_mock_pipe()
+    def test_vlm_returns_triple(self):
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
-            streamlit_app._get_vlm()
-            mock_model.to.assert_called_with("cpu")
-
-    def test_vlm_device_mps(self):
-        mock_pipe = _make_mock_pipe()
-        mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm, mps_available=True)
-        with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=True),
-            patch("torch.cuda.is_available", return_value=False),
-        ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
-            streamlit_app._get_vlm()
-            mock_model.to.assert_called_with("mps")
-
-    def test_vlm_device_cuda(self):
-        mock_pipe = _make_mock_pipe()
-        mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(
-            mock_pipe, mock_vlm=mock_vlm, cuda_available=True
-        )
-        with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=True),
-        ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
-            streamlit_app._get_vlm()
-            mock_model.to.assert_called_with("cuda")
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            result = streamlit_app._get_vlm()
+            assert result == (mock_vlm_model, mock_vlm_processor, mock_vlm_config)
 
 
 EXPECTED_SYSTEM_PROMPT = (
@@ -720,180 +681,188 @@ EXPECTED_SYSTEM_PROMPT_WITH_IMAGES = (
 
 class TestUpsamplePrompt:
     def test_chat_message_format_text_only(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("enhanced prompt")
             streamlit_app.upsample_prompt("a cat")
-            messages = mock_processor.apply_chat_template.call_args[0][0]
-            assert messages[0] == {
-                "role": "system",
-                "content": [{"type": "text", "text": EXPECTED_SYSTEM_PROMPT}],
-            }
-            assert messages[1] == {
-                "role": "user",
-                "content": [{"type": "text", "text": "a cat"}],
-            }
-            kwargs = mock_processor.apply_chat_template.call_args[1]
-            assert kwargs["add_generation_prompt"] is True
+            mock_chat.assert_called_once_with(
+                mock_vlm_processor,
+                mock_vlm_config,
+                [
+                    {"role": "system", "content": EXPECTED_SYSTEM_PROMPT},
+                    {"role": "user", "content": "a cat"},
+                ],
+                num_images=0,
+            )
 
     def test_chat_message_format_with_images(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         images = [Image.new("RGB", (64, 64)), Image.new("RGB", (64, 64))]
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("enhanced prompt")
             streamlit_app.upsample_prompt("make it blue", image_list=images)
-            messages = mock_processor.apply_chat_template.call_args[0][0]
-            assert messages[0] == {
-                "role": "system",
-                "content": [
-                    {"type": "text", "text": EXPECTED_SYSTEM_PROMPT_WITH_IMAGES}
+            mock_chat.assert_called_once_with(
+                mock_vlm_processor,
+                mock_vlm_config,
+                [
+                    {"role": "system", "content": EXPECTED_SYSTEM_PROMPT_WITH_IMAGES},
+                    {"role": "user", "content": "make it blue"},
                 ],
-            }
-            assert messages[1]["role"] == "user"
-            content = messages[1]["content"]
-            assert content[0] == {"type": "image"}
-            assert content[1] == {"type": "image"}
-            assert content[2] == {"type": "text", "text": "make it blue"}
+                num_images=2,
+            )
 
-    def test_images_passed_to_processor(self):
-        mock_pipe = _make_mock_pipe()
+    def test_images_passed_to_generate(self):
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         images = [Image.new("RGB", (64, 64))]
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("enhanced prompt")
             streamlit_app.upsample_prompt("edit", image_list=images)
-            call_kwargs = mock_processor.call_args[1]
-            assert call_kwargs["images"] is images
+            call_kwargs = mock_gen.call_args[1]
+            assert call_kwargs["image"] is images
 
-    def test_no_images_passed_to_processor_for_text_only(self):
-        mock_pipe = _make_mock_pipe()
+    def test_no_images_passed_for_text_only(self):
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("enhanced prompt")
             streamlit_app.upsample_prompt("a cat")
-            call_kwargs = mock_processor.call_args[1]
-            assert "images" not in call_kwargs
+            call_kwargs = mock_gen.call_args[1]
+            assert call_kwargs["image"] is None
 
     def test_generation_kwargs(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("enhanced prompt")
             streamlit_app.upsample_prompt("a cat")
-            gen_kwargs = mock_model.generate.call_args[1]
-            assert gen_kwargs["max_new_tokens"] == 150
-            assert gen_kwargs["do_sample"] is True
-            assert gen_kwargs["temperature"] == 0.7
-            assert gen_kwargs["top_p"] == 0.9
+            call_kwargs = mock_gen.call_args[1]
+            assert call_kwargs["max_tokens"] == 150
+            assert call_kwargs["temperature"] == 0.7
+            assert call_kwargs["top_p"] == 0.9
 
     def test_extracts_and_strips_output(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        mock_processor, mock_model = mock_vlm
-        mock_processor.batch_decode.return_value = ["  A majestic feline  "]
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("  A majestic feline  ")
             result = streamlit_app.upsample_prompt("a cat")
             assert result == "A majestic feline"
 
     def test_empty_output_returns_original(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        mock_processor, mock_model = mock_vlm
-        mock_processor.batch_decode.return_value = [""]
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("")
             result = streamlit_app.upsample_prompt("a cat")
             assert result == "a cat"
 
     def test_whitespace_only_output_returns_original(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        mock_processor, mock_model = mock_vlm
-        mock_processor.batch_decode.return_value = ["   "]
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("   ")
             result = streamlit_app.upsample_prompt("a cat")
             assert result == "a cat"
 
     def test_exception_returns_original(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        mock_processor, mock_model = mock_vlm
-        mock_model.generate.side_effect = RuntimeError("OOM")
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
             patch("streamlit_app.st") as mock_st,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
         ):
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.side_effect = RuntimeError("OOM")
             result = streamlit_app.upsample_prompt("a cat")
             assert result == "a cat"
             mock_st.warning.assert_called_once_with(
@@ -901,26 +870,32 @@ class TestUpsamplePrompt:
             )
 
     def test_empty_image_list_uses_text_only_path(self):
-        mock_pipe = _make_mock_pipe()
+        mock_model = _make_mock_model()
         mock_vlm = _make_mock_vlm()
-        streamlit_app, _ = _reload_app(mock_pipe, mock_vlm=mock_vlm)
+        streamlit_app, _ = _reload_app(mock_model, mock_vlm=mock_vlm)
         with (
-            patch("streamlit_app.AutoProcessor") as mock_ap,
-            patch("streamlit_app.AutoModelForImageTextToText") as mock_vm,
-            patch("torch.backends.mps.is_available", return_value=False),
-            patch("torch.cuda.is_available", return_value=False),
+            patch("streamlit_app.load_vlm") as mock_load,
+            patch("streamlit_app.load_config") as mock_lc,
+            patch("streamlit_app.apply_chat_template") as mock_chat,
+            patch("streamlit_app.vlm_generate") as mock_gen,
         ):
-            mock_processor, mock_model = mock_vlm
-            mock_ap.from_pretrained.return_value = mock_processor
-            mock_vm.from_pretrained.return_value = mock_model
+            mock_vlm_model, mock_vlm_processor, mock_vlm_config = mock_vlm
+            mock_load.return_value = (mock_vlm_model, mock_vlm_processor)
+            mock_lc.return_value = mock_vlm_config
+            mock_chat.return_value = "formatted prompt"
+            mock_gen.return_value = _MockGenerationResult("enhanced prompt")
             streamlit_app.upsample_prompt("a cat", image_list=[])
-            messages = mock_processor.apply_chat_template.call_args[0][0]
-            assert messages[0] == {
-                "role": "system",
-                "content": [{"type": "text", "text": EXPECTED_SYSTEM_PROMPT}],
-            }
-            call_kwargs = mock_processor.call_args[1]
-            assert "images" not in call_kwargs
+            mock_chat.assert_called_once_with(
+                mock_vlm_processor,
+                mock_vlm_config,
+                [
+                    {"role": "system", "content": EXPECTED_SYSTEM_PROMPT},
+                    {"role": "user", "content": "a cat"},
+                ],
+                num_images=0,
+            )
+            call_kwargs = mock_gen.call_args[1]
+            assert call_kwargs["image"] is None
 
 
 class TestResolvePrompt:
