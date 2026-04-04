@@ -1,5 +1,5 @@
 import importlib
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from PIL import Image
 
@@ -30,11 +30,13 @@ def _make_mock_vlm():
 def _reload_app(mock_model, *, mock_vlm=None):
     """Reload app module with mocked heavy dependencies and passthrough cache."""
     with (
-        patch("mflux.models.flux2.variants.Flux2Klein", return_value=mock_model) as mock_cls,
-        patch("mflux.models.common.config.ModelConfig") as mock_model_config,
+        patch(
+            "mflux.models.flux2.variants.Flux2Klein", return_value=mock_model
+        ) as mock_cls,
+        patch("mflux.models.common.config.ModelConfig") as _mock_model_config,
         patch("mlx_vlm.load") as mock_load,
-        patch("mlx_vlm.generate") as mock_generate,
-        patch("mlx_vlm.prompt_utils.apply_chat_template") as mock_chat,
+        patch("mlx_vlm.generate") as _mock_generate,
+        patch("mlx_vlm.prompt_utils.apply_chat_template") as _mock_chat,
         patch("mlx_vlm.utils.load_config") as mock_load_config,
         patch("streamlit.cache_resource", lambda f: f),
     ):
@@ -450,9 +452,7 @@ class TestVLMInit:
             mock_load.assert_called_once_with(
                 "mlx-community/SmolVLM-500M-Instruct-bf16"
             )
-            mock_lc.assert_called_once_with(
-                "mlx-community/SmolVLM-500M-Instruct-bf16"
-            )
+            mock_lc.assert_called_once_with("mlx-community/SmolVLM-500M-Instruct-bf16")
 
     def test_vlm_returns_triple(self):
         mock_model = _make_mock_model()
