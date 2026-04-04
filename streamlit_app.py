@@ -163,7 +163,7 @@ def upsample_prompt(prompt, image_list=None):
             temperature=0.7,
             top_p=0.9,
         )
-        enhanced = result.text.strip()
+        enhanced = result.text.replace("<end_of_utterance>", "").strip()
         return enhanced or prompt
     except Exception:
         st.warning("Prompt enhancement failed. Using original prompt.")
