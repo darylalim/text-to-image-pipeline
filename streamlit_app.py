@@ -1,4 +1,5 @@
 import random
+from typing import TypedDict
 
 import streamlit as st
 from mflux.models.common.config import ModelConfig
@@ -51,7 +52,14 @@ EDIT_MODELS = {
     "Base (50 steps)": _get_edit_model_base,
 }
 
-EXAMPLES = [
+
+class Example(TypedDict):
+    label: str
+    prompt: str
+    images: list[str] | None
+
+
+EXAMPLES: list[Example] = [
     {
         "label": "Gradient Vase",
         "prompt": (
@@ -157,8 +165,8 @@ def upsample_prompt(prompt, image_list=None):
         result = vlm_generate(
             model,
             processor,
-            formatted_prompt,
-            image=image_list if image_list else None,
+            formatted_prompt,  # type: ignore[arg-type]  # apply_chat_template returns str at runtime
+            image=image_list if image_list else None,  # type: ignore[arg-type]  # accepts PIL Images at runtime
             max_tokens=150,
             temperature=0.7,
             top_p=0.9,
@@ -270,9 +278,7 @@ if __name__ == "__main__":
         st.session_state.prompt_input = example["prompt"]
         st.session_state.last_prompt = example["prompt"]
         if example["images"]:
-            st.session_state.example_images = [
-                Image.open(p) for p in example["images"]
-            ]
+            st.session_state.example_images = [Image.open(p) for p in example["images"]]
         else:
             st.session_state.pop("example_images", None)
         _clear_enhancement()
