@@ -1,7 +1,6 @@
 import random
 
 import streamlit as st
-from dotenv import load_dotenv
 from mflux.models.common.config import ModelConfig
 from mflux.models.flux2.variants import Flux2Klein
 from mlx_vlm import generate as vlm_generate
@@ -9,8 +8,6 @@ from mlx_vlm import load as load_vlm
 from mlx_vlm.prompt_utils import apply_chat_template
 from mlx_vlm.utils import load_config
 from PIL import Image
-
-load_dotenv()
 
 MAX_SEED = 2_147_483_647
 MAX_IMAGE_SIZE = 1440

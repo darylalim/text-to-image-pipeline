@@ -1,13 +1,12 @@
 [project]
 name = "flux2-klein-pipeline"
 version = "0.1.0"
-description = "Generate and edit images with FLUX.2 Klein (Distilled and Base), optional prompt enhancement via SmolVLM, and per-step progress tracking"
+description = "Generate and edit images with FLUX.2 Klein on Apple Silicon via MLX (mflux + mlx-vlm)"
 requires-python = ">=3.12"
 dependencies = [
     "mflux",
     "mlx-vlm",
     "streamlit",
-    "python-dotenv",
 ]
 
 [dependency-groups]
