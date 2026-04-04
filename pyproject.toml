@@ -4,13 +4,10 @@ version = "0.1.0"
 description = "Generate and edit images with FLUX.2 Klein (Distilled and Base), optional prompt enhancement via SmolVLM, and per-step progress tracking"
 requires-python = ">=3.12"
 dependencies = [
-    "accelerate",
-    "diffusers @ git+https://github.com/huggingface/diffusers.git",
+    "mflux",
+    "mlx-vlm",
     "streamlit",
     "python-dotenv",
-    "sentencepiece",
-    "torch",
-    "transformers",
 ]
 
 [dependency-groups]
