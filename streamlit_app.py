@@ -246,7 +246,7 @@ def infer(
             guidance=guidance_scale,
         )
 
-    return image, seed
+    return image.image, seed
 
 
 def _clear_enhancement():
