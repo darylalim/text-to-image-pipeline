@@ -269,10 +269,6 @@ if __name__ == "__main__":
     st.title("AI Image Studio")
     st.caption("Powered by [FLUX.2 Klein](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B)")
 
-    prompt = st.text_input(
-        "Prompt", placeholder="Enter your prompt", key="prompt_input"
-    )
-
     def _select_example(example):
         st.session_state.prompt_input = example["prompt"]
         st.session_state.last_prompt = example["prompt"]
@@ -281,6 +277,26 @@ if __name__ == "__main__":
         else:
             st.session_state.pop("example_images", None)
         _clear_enhancement()
+
+    mode = st.pills(
+        "Mode",
+        options=["Distilled (4 steps)", "Base (50 steps)"],
+        default="Distilled (4 steps)",
+        key="mode_pills",
+    )
+
+    if mode is None:
+        mode = "Distilled (4 steps)"
+
+    if mode != st.session_state.get("prev_mode"):
+        st.session_state.prev_mode = mode
+        defaults = MODE_DEFAULTS[mode]
+        st.session_state.guidance_scale_slider = defaults["cfg"]
+        st.session_state.steps_slider = defaults["steps"]
+
+    prompt = st.text_input(
+        "Prompt", placeholder="Enter your prompt", key="prompt_input"
+    )
 
     example_cols = st.columns(len(EXAMPLES))
     for i, example in enumerate(EXAMPLES):
@@ -346,18 +362,6 @@ if __name__ == "__main__":
         )
     else:
         final_prompt = prompt
-
-    mode = st.radio(
-        "Mode",
-        options=["Distilled (4 steps)", "Base (50 steps)"],
-        horizontal=True,
-    )
-
-    if mode != st.session_state.get("prev_mode"):
-        st.session_state.prev_mode = mode
-        defaults = MODE_DEFAULTS[mode]
-        st.session_state.guidance_scale_slider = defaults["cfg"]
-        st.session_state.steps_slider = defaults["steps"]
 
     with st.expander("Advanced Settings"):
         auto_enhance = st.checkbox(
