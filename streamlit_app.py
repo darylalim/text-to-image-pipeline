@@ -299,6 +299,12 @@ if __name__ == "__main__":
         prompt = st.text_area(
             "Prompt", placeholder="Enter your prompt", key="prompt_input", height=160
         )
+        auto_enhance = st.checkbox(
+            "Auto-enhance prompt",
+            value=False,
+            help="Automatically enhance the prompt using the VLM before generating",
+            key="auto_enhance_checkbox",
+        )
     with col_images:
         uploaded_files = st.file_uploader(
             "Input images (optional)",
@@ -356,13 +362,6 @@ if __name__ == "__main__":
         final_prompt = prompt
 
     with st.expander("Advanced Settings"):
-        auto_enhance = st.checkbox(
-            "Auto-enhance prompt",
-            value=False,
-            help="Automatically enhance the prompt using the VLM before generating",
-            key="auto_enhance_checkbox",
-        )
-
         seed_val = st.slider(
             "Seed",
             min_value=0,
