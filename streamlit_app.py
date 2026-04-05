@@ -450,3 +450,15 @@ if __name__ == "__main__":
         st.image(st.session_state.result_image)
         if st.session_state.result_seed is not None:
             st.caption(f"Seed: {st.session_state.result_seed}")
+
+    st.divider()
+    st.subheader("Examples")
+    example_cols = st.columns(len(EXAMPLES))
+    for i, example in enumerate(EXAMPLES):
+        with example_cols[i]:
+            st.button(
+                example["label"],
+                key=f"example_{i}",
+                on_click=_select_example,
+                args=(example,),
+            )
