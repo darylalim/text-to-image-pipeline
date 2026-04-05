@@ -294,25 +294,17 @@ if __name__ == "__main__":
         st.session_state.guidance_scale_slider = defaults["cfg"]
         st.session_state.steps_slider = defaults["steps"]
 
-    prompt = st.text_input(
-        "Prompt", placeholder="Enter your prompt", key="prompt_input"
-    )
-
-    example_cols = st.columns(len(EXAMPLES))
-    for i, example in enumerate(EXAMPLES):
-        with example_cols[i]:
-            st.button(
-                example["label"],
-                key=f"example_{i}",
-                on_click=_select_example,
-                args=(example,),
-            )
-
-    uploaded_files = st.file_uploader(
-        "Input images (optional)",
-        type=["png", "jpg", "jpeg", "webp"],
-        accept_multiple_files=True,
-    )
+    col_prompt, col_images = st.columns(2)
+    with col_prompt:
+        prompt = st.text_area(
+            "Prompt", placeholder="Enter your prompt", key="prompt_input", height=160
+        )
+    with col_images:
+        uploaded_files = st.file_uploader(
+            "Input images (optional)",
+            type=["jpg", "jpeg", "png", "webp"],
+            accept_multiple_files=True,
+        )
 
     image_list = None
     if uploaded_files:
